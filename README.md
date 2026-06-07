@@ -20,4 +20,4 @@ Do zarządzania metadanymi wykorzystałem akcję `docker/metadata-action`. Tagi 
 * `type=raw,value=latest` – Dodatkowy tag nakładany w celu ułatwienia pobierania najnowszej wersji obrazu przez użytkowników.
 
 **Tagowanie pamięci cache (DockerHub):**
-* Zastosowałem tagowanie oparte na nazwie gałęzi (w tym przypadku `main`). Takie rozwiązanie izoluje główny cache od ewentualnych eksperymentów na innych gałęziach (tzw. feature branchach). Zapobiega to zjawisku zanieczyszczenia pamięci podręcznej (Cache Poisoning) wadliwym kodem. Użycie trybu `mode=max` sprawia, że eksportowane są wszystkie warstwy pośrednie, co dodatkowo przyspiesza kolejne kompilacje.
+* Zastosowałem tagowanie oparte na nazwie gałęzi (w tym przypadku `main`). Takie rozwiązanie izoluje główny cache od ewentualnych eksperymentów na innych gałęziach. Zapobiega to zjawisku zanieczyszczenia pamięci podręcznej wadliwym kodem. Użycie trybu `mode=max` sprawia, że eksportowane są wszystkie warstwy pośrednie, co dodatkowo przyspiesza kolejne kompilacje.
