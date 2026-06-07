@@ -1,0 +1,79 @@
+name: CI/CD WeatherApp Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  GHCR_REGISTRY: ghcr.io
+  IMAGE_NAME: jakub-jd/pawcho_zadanie2 
+  DOCKERHUB_CACHE: jakubjd/weatherapp-cache
+
+jobs:
+  build-scan-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write 
+
+    steps:
+      - name: 1. Pobranie kodu z repozytorium
+        uses: actions/checkout@v4
+
+      - name: 2. Konfiguracja emulatora QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 3. Konfiguracja Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 4. Logowanie do DockerHuba
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 5. Logowanie do GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 6. Generowanie Metadanych (Tagów)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=latest
+
+      - name: 7. Budowanie lokalnego obrazu na potrzeby skanera
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: local-weatherapp:test
+          cache-from: type=registry,ref=${{ env.DOCKERHUB_CACHE }}:main
+
+      - name: 8. Skanowanie podatności (Trivy Security Gate)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'local-weatherapp:test'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: 9. Budowanie Multi-Arch i wysłanie do GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.DOCKERHUB_CACHE }}:main
+          cache-to: type=registry,ref=${{ env.DOCKERHUB_CACHE }}:main,mode=max
