@@ -21,3 +21,11 @@ Do zarządzania metadanymi wykorzystałem akcję `docker/metadata-action`. Tagi 
 
 **Tagowanie pamięci cache (DockerHub):**
 * Zastosowałem tagowanie oparte na nazwie gałęzi (w tym przypadku `main`). Takie rozwiązanie izoluje główny cache od ewentualnych eksperymentów na innych gałęziach. Zapobiega to zjawisku zanieczyszczenia pamięci podręcznej wadliwym kodem. Użycie trybu `mode=max` sprawia, że eksportowane są wszystkie warstwy pośrednie, co dodatkowo przyspiesza kolejne kompilacje.
+
+## 3. Dodatkowo wykonane rzeczy 
+** Wstępne utworzenie/przeniesienie potrzebnych plików
+<img width="1210" height="1204" alt="Zrzut ekranu 2026-06-07 141925" src="https://github.com/user-attachments/assets/73063da3-a1cb-45e0-8a48-66aa1fd75058" />
+
+** Utworzenie zmiennych potrzebnych do korzystania z cache'a z DockerHub'a
+  <img width="1005" height="183" alt="Zrzut ekranu 2026-06-07 144340" src="https://github.com/user-attachments/assets/95e50532-e231-45a6-a7d9-65c759d5c86d" />
+
