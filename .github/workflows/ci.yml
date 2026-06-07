@@ -1,38 +1,51 @@
+# Nazwa potoku, która będzie widoczna w zakładce "Actions" w repozytorium na GitHubie
 name: CI/CD WeatherApp Pipeline
 
+# Określenie wyzwalaczy (kiedy potok ma się uruchomić)
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [ "main" ] # Uruchamia się automatycznie po każdym commicie na gałąź main
+  workflow_dispatch:     # Pozwala na ręczne wystartowanie potoku z poziomu przeglądarki
 
+# Definicja zmiennych środowiskowych współdzielonych w całym potoku
 env:
   GHCR_REGISTRY: ghcr.io
-  IMAGE_NAME: jakub-jd/pawcho_zadanie2 
-  DOCKERHUB_CACHE: jakubjd/weatherapp-cache
+  IMAGE_NAME: jakub-jd/pawcho_zadanie2 # Docelowa nazwa obrazu w rejestrze GHCR
+  DOCKERHUB_CACHE: jakubjd/weatherapp-cache # Wskazanie lokalizacji cache na DockerHubie
 
+# Definicja zadań do wykonania w ramach tego potoku
 jobs:
   build-scan-and-push:
+    # Określenie systemu operacyjnego wirtualnej maszyny (runnera), na której wykona się zadanie
     runs-on: ubuntu-latest
+    
+    # Nadanie potokowi odpowiednich uprawnień (zapisywanie obrazów do paczek GitHuba)
     permissions:
       contents: read
       packages: write 
 
+    # Lista kolejnych kroków do wykonania
     steps:
+      # Pobiera cały kod źródłowy z repozytorium na wirtualną maszynę
       - name: 1. Pobranie kodu z repozytorium
         uses: actions/checkout@v4
 
+      # Instaluje emulator QEMU, który jest niezbędny do budowania obrazów na procesory ARM
       - name: 2. Konfiguracja emulatora QEMU
         uses: docker/setup-qemu-action@v3
 
+      # Aktywuje rozszerzony silnik Buildx (potrzebny do multi-arch i obsługi cache)
       - name: 3. Konfiguracja Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Loguje się do DockerHuba przy użyciu zdefiniowanych wcześniej sekretów i zmiennych
       - name: 4. Logowanie do DockerHuba
         uses: docker/login-action@v3
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Loguje się do rejestru obrazów GitHuba, wykorzystując wbudowany automatyczny token i użytkownika wykonywującego push
       - name: 5. Logowanie do GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -40,15 +53,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Konfiguruje schemat nazywania (tagowania) docelowego obrazu
       - name: 6. Generowanie Metadanych (Tagów)
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,format=long
-            type=raw,value=latest
+            type=sha,format=long # Tag oparty na długim hashu z Git (przydatne do wersjonowania)
+            type=raw,value=latest # Dodatkowy stały tag 'latest'
 
+      # Tworzy jednorazowy obraz tylko na domyślną architekturę i ładuje go lokalnie (load: true).
+      # Robimy to wyłącznie w celu dostarczenia fizycznego obrazu dla skanera bezpieczeństwa w kolejnym kroku.
       - name: 7. Budowanie lokalnego obrazu na potrzeby skanera
         uses: docker/build-push-action@v5
         with:
@@ -57,6 +73,8 @@ jobs:
           tags: local-weatherapp:test
           cache-from: type=registry,ref=${{ env.DOCKERHUB_CACHE }}:main
 
+      # Uruchamia skaner bezpieczeństwa Trivy na zbudowanym wyżej lokalnym obrazie.
+      # Zastosowanie exit-code: '1' wymusza przerwanie całego potoku w przypadku wykrycia poważnych luk (CRITICAL, HIGH).
       - name: 8. Skanowanie podatności (Trivy Security Gate)
         uses: aquasecurity/trivy-action@master
         with:
@@ -67,6 +85,8 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
 
+      # Jeśli test CVE przeszedł pomyślnie, buduje ostateczny obraz wieloplatformowy.
+      # Zapisuje go na GHCR (push: true) i eksportuje całą pamięć podręczną (mode=max) na DockerHub.
       - name: 9. Budowanie Multi-Arch i wysłanie do GHCR
         uses: docker/build-push-action@v5
         with:
